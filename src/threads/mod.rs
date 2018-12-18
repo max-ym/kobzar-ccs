@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::btree_map::Iter;
 
 /// Type used to identify unique threads.
 pub type Key = u32;
@@ -53,6 +54,16 @@ impl Set {
     /// Get thread by it's key.
     pub fn get_mut(&mut self, key: Key) -> Option<&mut Thread> {
         self.map.get_mut(&key)
+    }
+
+    /// Iterator over elements of the set.
+    pub fn iter(&self) -> Iter<Key, Thread> {
+        self.map.iter()
+    }
+
+    /// Access the internal map of the structure.
+    pub fn map(&self) -> &BTreeMap<Key, Thread> {
+        self.map
     }
 }
 
