@@ -1,4 +1,9 @@
 use std::rc::Rc;
+use std::collections::BTreeSet;
+
+pub struct PackageSet {
+    paths: BTreeSet<RcPath>,
+}
 
 #[derive(Debug, Clone)]
 pub struct RcPath(Rc<Path>);

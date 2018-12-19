@@ -23,6 +23,7 @@ pub use path:: {
     Path,
     RcPath,
     PathIter,
+    PackageSet,
 };
 
 /// Operations on channels between threads.
@@ -34,6 +35,8 @@ pub use channels::{
     WaitMap,
     ChannelSet,
 };
+
+
 
 #[cfg(test)]
 mod tests {
