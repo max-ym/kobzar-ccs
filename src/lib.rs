@@ -6,6 +6,13 @@ pub use threads::Key as ThreadKey;
 
 /// Interface set and operations.
 pub mod interfaces;
+pub use interfaces:: {
+    Version,
+    Key as InterfaceKey,
+    Interface,
+    Func as InterfaceFunc,
+    InterfaceSet,
+};
 
 /// Paths to packages which contains interfaces and processes.
 pub mod path;
