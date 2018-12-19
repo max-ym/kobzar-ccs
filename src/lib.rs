@@ -1,9 +1,9 @@
 /// Application thread list operations.
 pub mod threads;
-pub use threads::Set as ThreadSet;
-pub use threads::Thread;
-pub use threads::Key as ThreadKey;
 pub use threads::{
+    Set as ThreadSet,
+    Thread,
+    Key as ThreadKey,
     State as ThreadState,
 };
 
