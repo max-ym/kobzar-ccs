@@ -14,6 +14,11 @@ pub struct Channel {
     participants: BTreeSet<ThreadKey>,
 }
 
+/// Set that contains all channels.
+pub struct ChannelSet {
+    map: BTreeMap<Key, Channel>,
+}
+
 pub struct WaitDependency {
 
     /// Thread that waits for a signal.
@@ -60,6 +65,50 @@ impl Channel {
     pub fn remove_participant(&mut self, thread: ThreadKey) -> bool {
         let present = self.participants.remove(&thread);
         present
+    }
+}
+
+impl ChannelSet {
+
+    /// Create new empty channel set.
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Add new channel to the set. If it is already present, existing channel
+    /// is not modified and true is returned. False otherwise.
+    pub fn add_channel(&mut self, key: Key, channel: Channel) -> bool {
+        if self.map.contains_key(&key) {
+            true
+        } else {
+            self.map.insert(key, channel);
+            false
+        }
+    }
+
+    /// Remove existing channel from the set. If it exists, true is returned
+    /// and false otherwise.
+    pub fn remove_channel(&mut self, key: Key) -> bool {
+        self.map.remove(&key).is_some()
+    }
+
+    /// Channel in the set by the key.
+    pub fn channel(&self, key: Key) -> Option<&Channel> {
+        self.map.get(&key)
+    }
+
+    /// Channel in the set by the key.
+    pub fn channel_mut(&mut self, key: Key) -> Option<&mut Channel> {
+        self.map.get_mut(&key)
+    }
+}
+
+impl Default for ChannelSet {
+
+    fn default() -> Self {
+        ChannelSet {
+            map: Default::default(),
+        }
     }
 }
 
