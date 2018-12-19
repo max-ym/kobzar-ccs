@@ -4,12 +4,28 @@ use std::collections::btree_map::Iter;
 /// Type used to identify unique threads.
 pub type Key = u32;
 
+/// Thread execution state.
+pub enum State {
+
+    /// Thread is waiting for external event without timeout.
+    WaitWithoutTimout,
+
+    /// Thread is waiting for external event with timeout.
+    WaitWithTimout,
+
+    /// Thread actively runs.
+    Active,
+
+    /// Thread is waiting for processor time.
+    Sleep,
+}
+
 /// Thread related metadata. Does not contain architecture-specific
 /// information. This information is stored in another struct implemented
 /// by the OS core threading module that is connected to this structure
 /// instance.
 pub struct Thread {
-    // TODO
+    state: State,
 }
 
 /// Thread set. Allows to add, remove and search for threads.
@@ -17,6 +33,33 @@ pub struct Set {
     map: BTreeMap<Key, Thread>,
 
     last_key: Key,
+}
+
+impl Thread {
+
+    /// Create new thread that waits for processor time.
+    pub fn new() -> Thread {
+        Default::default()
+    }
+
+    /// Current thread state.
+    pub fn state(&self) -> &State {
+        &self.state
+    }
+
+    /// Set new thread state.
+    pub fn set_state(&mut self, new_state: State) {
+        self.state = new_state;
+    }
+}
+
+impl Default for Thread {
+
+    fn default() -> Self {
+        Thread {
+            state: State::Sleep,
+        }
+    }
 }
 
 impl Set {

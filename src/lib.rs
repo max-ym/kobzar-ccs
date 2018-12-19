@@ -3,6 +3,9 @@ pub mod threads;
 pub use threads::Set as ThreadSet;
 pub use threads::Thread;
 pub use threads::Key as ThreadKey;
+pub use threads::{
+    State as ThreadState,
+};
 
 /// Interface set and operations.
 pub mod interfaces;
