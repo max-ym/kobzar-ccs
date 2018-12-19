@@ -22,6 +22,14 @@ pub use path:: {
     PathIter,
 };
 
+/// Operations on channels between threads.
+pub mod channels;
+pub use channels::{
+    Channel,
+    Key as ChannelKey,
+    WaitDependency,
+};
+
 #[cfg(test)]
 mod tests {
 }
