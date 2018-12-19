@@ -63,7 +63,7 @@ impl Set {
 
     /// Access the internal map of the structure.
     pub fn map(&self) -> &BTreeMap<Key, Thread> {
-        self.map
+        &self.map
     }
 }
 
