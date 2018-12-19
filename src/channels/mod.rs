@@ -2,7 +2,7 @@ use super::{
     ThreadKey,
 };
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, BTreeMap};
 
 /// Channel identifier.
 pub type Key = u32;
@@ -21,6 +21,14 @@ pub struct WaitDependency {
 
     /// Source from which the signal is expected.
     signal_source: Key,
+}
+
+/// Map that contains all awaiting threads.
+pub struct WaitMap {
+
+    /// Map contains channel key. This key identifies the channel that
+    /// has waiters.
+    map: BTreeMap<Key, BTreeSet<ThreadKey>>,
 }
 
 impl Channel {
@@ -74,5 +82,70 @@ impl WaitDependency {
     /// Source from which the signal is expected.
     pub fn signal_source(&self) -> &Key {
         &self.signal_source
+    }
+}
+
+impl WaitMap {
+
+    /// Create new wait map.
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Add new channel that has waiters. Returns false if the channel
+    /// is already present and the existing channel is not changed.
+    pub fn add_channel(&mut self, key: Key, waiters: BTreeSet<ThreadKey>)
+            -> bool {
+        let present = self.map.contains_key(&key);
+        if present {
+            false
+        } else {
+            self.map.insert(key, waiters);
+            true
+        }
+    }
+
+    /// Add new waiter to registered channel. Returns false if channel
+    /// is not registered. It gets registered and waiter is added.
+    pub fn add_waiter(&mut self, key: Key, waiter: ThreadKey) -> bool {
+        if self.map.contains_key(&key) {
+            self.map.get_mut(&key).unwrap().insert(waiter);
+            true
+        } else {
+            let mut waiters = BTreeSet::new();
+            waiters.insert(waiter);
+            self.map.insert(key, waiters);
+            false
+        }
+    }
+
+    /// Remove waiter from the channel. If channel gets zero waiters, it gets
+    /// removed from the map. Returns true if waiter was found and false
+    /// otherwise.
+    pub fn remove_waiter(&mut self, key: Key, waiter: ThreadKey) -> bool {
+        if self.map.contains_key(&key) {
+            let (present, set_is_empty) = {
+                let set = self.map.get_mut(&key).unwrap();
+                let present = set.remove(&waiter);
+
+                (present, set.is_empty())
+            };
+
+            if set_is_empty {
+                self.map.remove(&key);
+            }
+            present
+        } else {
+            false
+        }
+    }
+}
+
+impl Default for WaitMap {
+
+    fn default() -> Self {
+        WaitMap {
+            map: Default::default()
+        }
     }
 }

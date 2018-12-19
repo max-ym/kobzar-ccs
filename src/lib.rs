@@ -31,6 +31,7 @@ pub use channels::{
     Channel,
     Key as ChannelKey,
     WaitDependency,
+    WaitMap,
 };
 
 #[cfg(test)]
