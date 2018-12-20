@@ -19,7 +19,7 @@ pub struct Key {
 }
 
 /// Information about interface.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Interface {
     fns: BTreeSet<Func>,
 
