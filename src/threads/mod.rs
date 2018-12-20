@@ -8,7 +8,7 @@ pub type Key = u32;
 pub enum State {
 
     /// Thread is waiting for external event without timeout.
-    WaitWithoutTimout,
+    WaitWithoutTimeout,
 
     /// Thread is waiting for external event with timeout.
     WaitWithTimout,
