@@ -5,6 +5,7 @@ use std::collections::btree_map::Iter;
 pub type Key = u32;
 
 /// Thread execution state.
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum State {
 
     /// Thread is waiting for external event without timeout.
@@ -90,12 +91,12 @@ impl Set {
     }
 
     /// Get thread by it's key.
-    pub fn get(&mut self, key: Key) -> Option<&Thread> {
+    pub fn get(&self, key: &Key) -> Option<&Thread> {
         self.map.get(&key)
     }
 
     /// Get thread by it's key.
-    pub fn get_mut(&mut self, key: Key) -> Option<&mut Thread> {
+    pub fn get_mut(&mut self, key: &Key) -> Option<&mut Thread> {
         self.map.get_mut(&key)
     }
 
