@@ -36,6 +36,15 @@ pub use crate::channels::{
     ChannelSet,
 };
 
+/// Process data and operations on processes.
+pub mod process;
+pub use crate::process::{
+    Key as ProcessKey,
+    Process,
+    Set as ProcessSet,
+    ImplementationConflicts,
+};
+
 #[cfg(test)]
 mod tests {
 }
