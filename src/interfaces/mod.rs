@@ -25,7 +25,7 @@ pub struct Interface {
 
     /// Interfaces that must be implemented first in order to allow this
     /// one's implementation.
-    prerequisites: BTreeMap<Key, Rc<Interface>>,
+    prerequisites: BTreeSet<Key>,
 }
 
 /// Function that must be implemented by interface implementator.
@@ -184,7 +184,7 @@ impl Interface {
     /// Set of prerequisite interfaces. These interfaces required to be
     /// implemented by the process in case it want's to implement
     /// given interface.
-    pub fn prerequisites(&self) -> &BTreeMap<Key, Rc<Interface>> {
+    pub fn prerequisites(&self) -> &BTreeSet<Key> {
         &self.prerequisites
     }
 
@@ -194,8 +194,8 @@ impl Interface {
     }
 
     /// Add new prerequisite to the set.
-    pub fn add_prerequisite(&mut self, key: Key, interface: Rc<Interface>) {
-        self.prerequisites.insert(key, interface);
+    pub fn add_prerequisite(&mut self, key: Key) {
+        self.prerequisites.insert(key);
     }
 }
 
