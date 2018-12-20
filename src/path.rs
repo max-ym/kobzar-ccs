@@ -1,8 +1,15 @@
 use std::rc::Rc;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, LinkedList};
 
-pub struct PackageSet {
-    paths: BTreeSet<RcPath>,
+/// Tree that stores all package nodes.
+#[derive(Default)]
+pub struct PackageTree {
+    root_node: PackageNode,
+}
+
+#[derive(Default)]
+struct PackageNode {
+    nodes: BTreeMap<String, PackageNode>,
 }
 
 #[derive(Debug, Clone)]
@@ -22,8 +29,111 @@ pub struct PathIter {
     curr: usize,
 }
 
+impl PackageTree {
+
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Create all nodes and Rcs to store this path.
+    pub fn store_path(&mut self, path: &RcPath) {
+        let mut cur = &mut self.root_node.nodes;
+        let mut i = PathIter::new(path.clone());
+
+        loop {
+            // Next node of path.
+            let next = i.next();
+            if next.is_none() {
+                break;
+            }
+            let next = next.unwrap();
+
+            // Check of given path node is already regitered.
+            let node_name = &next.name;
+            if !cur.contains_key(node_name) {
+                // Register new node.
+                cur.insert(
+                    node_name.clone(),
+                    Default::default(),
+                );
+            }
+
+            // Move to next node in tree.
+            cur = &mut cur.get_mut(node_name).unwrap().nodes;
+        }
+    }
+
+    /// Remove this path from the tree. Some packages may still remain if
+    /// they store other sub-packages.
+    pub fn remove_path(&mut self, path: &RcPath) {
+        let mut cur = &mut self.root_node;
+        let mut i = PathIter::new(path.clone());
+        let mut tree_node_path = LinkedList::new();
+        tree_node_path.push_back(cur as *const _);
+        let mut passed = 0; // How many nodes were passed.
+
+        // Build and save path to last node.
+        loop {
+            // Get next path node.
+            let next = i.next();
+            if next.is_none() {
+                // The last node reached.
+                break;
+            }
+            let next = next.unwrap();
+
+            // Find corresponding tree node.
+            let name = &next.name;
+            let corresponding_node = cur.nodes.get_mut(name);
+            if corresponding_node.is_none() {
+                break; // No such node.
+            }
+            let corresponding_node = corresponding_node.unwrap();
+            passed += 1;
+
+            // Store corresponding node pointer in the list.
+            tree_node_path.push_back(corresponding_node as *const _);
+
+            // Move to sub-node.
+            cur = corresponding_node;
+        }
+
+        // Check how many nodes were actually passed and compare to
+        // full path size.
+        let remain = i.len() - passed;
+        if remain != 0 {
+            // Part of path does not exist.
+            // Remove from iterator non-existent nodes.
+            for _ in 0..remain {
+                i.next_back();
+            }
+        }
+
+        loop {
+            // Get next node to process.
+            let next = i.next_back();
+            if next.is_none() {
+                // No more nodes. We're done.
+                break;
+            }
+            let next = next.unwrap();
+
+            let back = tree_node_path.pop_back().unwrap();
+            let back = unsafe { &mut *(back as *mut PackageNode) };
+
+            if back.nodes.is_empty() {
+                // If this is the last package - remove node completely.
+                let new_back = tree_node_path.back().unwrap();
+                let new_back = unsafe { &mut *(*new_back as *mut PackageNode) };
+                new_back.nodes.remove(&next.name);
+            }
+        }
+    }
+}
+
 impl Path {
 
+    /// Create new path without parents.
     pub fn new(name: String) -> RcPath {
         let rc = Rc::new(Path {
             prev_node: None,
@@ -32,6 +142,7 @@ impl Path {
         RcPath(rc)
     }
 
+    /// Create new path node with given parent.
     pub fn new_from_parent(parent: RcPath, name: String) -> RcPath {
         let rc = Rc::new(Path {
             prev_node: Some(parent),
@@ -310,5 +421,59 @@ mod tests {
         let p1 = Path::new_from_parent(p1, "c".to_string());
 
         assert!(p0 < p1);
+    }
+
+    #[test]
+    fn package_tree_adding_first() {
+        let mut pt = PackageTree::new();
+
+        let p0 = Path::new("a".to_string());
+        let p0 = Path::new_from_parent(p0, "b".to_string());
+        let p0 = Path::new_from_parent(p0, "c".to_string());
+        let p0 = Path::new_from_parent(p0, "d".to_string());
+
+        pt.store_path(&p0);
+
+        let root = &pt.root_node.nodes;
+        let a = root.get(&"a".to_string()).unwrap();
+        let b = a.nodes.get(&"b".to_string()).unwrap();
+        let c = b.nodes.get(&"c".to_string()).unwrap();
+        let d = c.nodes.get(&"d".to_string()).unwrap();
+    }
+
+    #[test]
+    fn package_tree_remove_half0() {
+        let mut pt = PackageTree::new();
+
+        let p0 = Path::new("a".to_string());
+        let p0 = Path::new_from_parent(p0, "b".to_string());
+        let p0 = Path::new_from_parent(p0, "c".to_string());
+        let p1 = Path::new_from_parent(p0.clone(), "d".to_string());
+
+        pt.store_path(&p1);
+        pt.remove_path(&p0);
+
+        let root = &pt.root_node.nodes;
+        let a = root.get(&"a".to_string()).unwrap();
+        let b = a.nodes.get(&"b".to_string()).unwrap();
+        let c = b.nodes.get(&"c".to_string()).unwrap();
+        assert!(c.nodes.get(&"d".to_string()).is_some());
+    }
+
+
+    #[test]
+    fn package_tree_remove_half1() {
+        let mut pt = PackageTree::new();
+
+        let p0 = Path::new("a".to_string());
+        let p0 = Path::new_from_parent(p0, "b".to_string());
+        let p0 = Path::new_from_parent(p0, "c".to_string());
+        let p1 = Path::new_from_parent(p0.clone(), "d".to_string());
+
+        pt.store_path(&p0);
+        pt.remove_path(&p1);
+
+        let root = &pt.root_node.nodes;
+        assert!(root.get(&"a".to_string()).is_none());
     }
 }

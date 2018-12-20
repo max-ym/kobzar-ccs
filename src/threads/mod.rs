@@ -127,10 +127,8 @@ mod tests {
     #[test]
     fn set() {
         let mut set = Set::new();
-        let thr1 = Thread {
-        };
-        let thr2 = Thread {
-        };
+        let thr1 = Thread::default();
+        let thr2 = Thread::default();
 
         let k1 = set.add(thr1);
         let k2 = set.add(thr2);

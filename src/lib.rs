@@ -23,7 +23,7 @@ pub use crate::path:: {
     Path,
     RcPath,
     PathIter,
-    PackageSet,
+    PackageTree,
 };
 
 /// Operations on channels between threads.
