@@ -1,4 +1,5 @@
 use crate::{
+    RcPath,
     ThreadKey,
     InterfaceKey,
     InterfaceSet,
@@ -14,8 +15,8 @@ pub type Key = u32;
 
 /// System process that can implement some interfaces and contains
 /// threads that perform tasks.
-#[derive(Default)]
 pub struct Process {
+    path: RcPath,
     threads: BTreeSet<ThreadKey>,
     implements: BTreeSet<InterfaceKey>,
 }
@@ -34,8 +35,12 @@ pub struct ImplementationConflicts {
 impl Process {
 
     /// Create new empty process.
-    pub fn new() -> Self {
-        Default::default()
+    pub fn new(path: RcPath) -> Self {
+        Process {
+            path,
+            threads: Default::default(),
+            implements: Default::default(),
+        }
     }
 
     /// Threads of this process.
@@ -92,6 +97,11 @@ impl Process {
         } else {
             Ok(())
         }
+    }
+
+    /// Path where this process is located.
+    pub fn path(&self) -> &RcPath {
+        &self.path
     }
 }
 
