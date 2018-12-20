@@ -1,6 +1,6 @@
 /// Application thread list operations.
 pub mod threads;
-pub use threads::{
+pub use crate::threads::{
     Set as ThreadSet,
     Thread,
     Key as ThreadKey,
@@ -9,7 +9,7 @@ pub use threads::{
 
 /// Interface set and operations.
 pub mod interfaces;
-pub use interfaces:: {
+pub use crate::interfaces:: {
     Version,
     Key as InterfaceKey,
     Interface,
@@ -19,7 +19,7 @@ pub use interfaces:: {
 
 /// Paths to packages which contains interfaces and processes.
 pub mod path;
-pub use path:: {
+pub use crate::path:: {
     Path,
     RcPath,
     PathIter,
@@ -28,15 +28,13 @@ pub use path:: {
 
 /// Operations on channels between threads.
 pub mod channels;
-pub use channels::{
+pub use crate::channels::{
     Channel,
     Key as ChannelKey,
     WaitDependency,
     WaitMap,
     ChannelSet,
 };
-
-
 
 #[cfg(test)]
 mod tests {

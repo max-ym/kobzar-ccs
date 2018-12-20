@@ -2,5 +2,6 @@
 name = "ccs"
 version = "0.2.0"
 authors = ["Maxym Naumchyk <max.naumch@gmail.com>"]
+edition = "2018"
 
 [dependencies]
