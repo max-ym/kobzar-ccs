@@ -112,6 +112,16 @@ impl Set {
         Default::default()
     }
 
+    /// Get a process from the set if it is stored there.
+    pub fn get(&self, key: &Key) -> Option<&Process> {
+        self.procs.get(key)
+    }
+
+    /// Get a process from the set if it is stored there.
+    pub fn get_mut(&mut self, key: &Key) -> Option<&mut Process> {
+        self.procs.get_mut(key)
+    }
+
     /// Processes in the map.
     pub fn processes(&self) -> &BTreeMap<Key, Process> {
         &self.procs
