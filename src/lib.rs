@@ -34,8 +34,6 @@ pub mod channels;
 pub use crate::channels::{
     Channel,
     Key as ChannelKey,
-    WaitDependency,
-    WaitMap,
     ChannelSet,
 };
 
@@ -46,6 +44,13 @@ pub use crate::process::{
     Process,
     Set as ProcessSet,
     ImplementationConflicts,
+};
+
+/// Operations related to waiting threads and channel lock relations.
+pub mod wait;
+pub use crate::wait::{
+    WaitDependency,
+    WaitMap,
 };
 
 /// Network that contains all threads, channels, packages and interfaces.
