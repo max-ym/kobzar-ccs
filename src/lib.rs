@@ -139,33 +139,6 @@ impl Network {
     ) -> Option<()> {
         unimplemented!()
     }
-
-    /// Check if threads in this channel created deadlock of signal waiting.
-    /// It also includes verifying other channels that are open by the threads
-    /// if they are waiting not for a given channel but are still participating
-    /// in it.
-    ///
-    /// # Returns
-    /// True if deadlock was found. False means there is no deadlock.
-    /// None if channel was not registered.
-    fn check_signal_wait_deadlock(&self, signal_source: ChannelKey)
-            -> Option<bool> {
-
-        // To check whether the channel is deadlocked we need to
-        // build a graph which will show all relations
-        // between different channels. If graph contains
-        // a loop then there is a deadlock and otherwise there is
-        // no deadlock.
-        //
-        // When new thread changes it's state on waiting without timer
-        // the channels where it paricipates must be checked.
-        // The graph relations of these channels must be updated but old
-        // results of unaffected channels may be used. This will reduce
-        // computation time by removing repeated checks that will produce
-        // same results.
-
-        unimplemented!()
-    }
 }
 
 #[cfg(test)]
