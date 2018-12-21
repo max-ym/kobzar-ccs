@@ -173,6 +173,25 @@ impl WaitMap {
         true
     }
 
+    /// Remove thread from all channels.
+    ///
+    /// Returns true if thread was successfully removed and
+    /// false if it was not found.
+    pub fn remove_thread(&mut self, key: &ThreadKey) -> bool {
+        // Collect all channels to remove thread from.
+        let channels = self.thr.get(key);
+        if channels.is_none() {
+            return false;
+        }
+        let channels = channels.unwrap();
+
+        for chan in channels.iter() {
+            self.chan.get_mut(chan).unwrap().remove(key);
+        }
+
+        true
+    }
+
     /// Map that holds all wait dependencies of the channel.
     pub fn channel_wait_map(&self) -> &BTreeMap<ChannelKey, BTreeSet<ThreadKey>> {
         &self.chan
