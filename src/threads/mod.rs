@@ -12,7 +12,7 @@ pub enum State {
     WaitWithoutTimeout,
 
     /// Thread is waiting for external event with timeout.
-    WaitWithTimout,
+    WaitWithTimeout,
 
     /// Thread actively runs.
     Active,
