@@ -27,6 +27,13 @@ pub struct WaitMap {
     /// This map connects each single thread with a channel where it
     /// waits for a signal.
     thr: BTreeMap<ThreadKey, BTreeSet<ChannelKey>>,
+
+    /// Connection between each channel and graph node that represents the
+    /// channel.
+    chan_to_graph: BTreeMap<ChannelKey, Rc<GraphNode>>,
+
+    /// The graph of dependencies.
+    graph: Graph,
 }
 
 type GraphNodeKey = u32;
@@ -74,16 +81,23 @@ impl WaitMap {
     }
 
     /// Add new channel that has waiters. Returns false if the channel
-    /// is already present and the existing channel is not changed.
+    /// is already present and the existing channel is not changed. False
+    /// can also be returned if waiters set is empty.
     pub fn add_channel(&mut self, key: ChannelKey, waiters: BTreeSet<ThreadKey>)
             -> bool {
+        if waiters.is_empty() {
+            return false;
+        }
+
         let present = self.chan.contains_key(&key);
 
-        // Add to channel map.
+        // Add to channel map and graph.
         let added = if present {
             false
         } else {
-            self.chan.insert(key, waiters.clone());
+            self.chan.insert(key.clone(), waiters.clone());
+            self.chan_to_graph.insert(
+                key.clone(), self.graph.create_new_node());
             true
         };
 
@@ -143,6 +157,7 @@ impl WaitMap {
 
             if set_is_empty {
                 self.chan.remove(&key);
+                self.chan_to_graph.remove(&key);
             }
             present
         } else {
@@ -166,6 +181,62 @@ impl WaitMap {
     /// Map that connects each thread with a channel for which it waits.
     pub fn thread_wait_map(&self) -> &BTreeMap<ThreadKey, BTreeSet<ChannelKey>> {
         &self.thr
+    }
+
+    /// Create new relation between channels.
+    ///
+    /// Returns true if relation successfully created.
+    /// False is returned when channel was not found by the key.
+    /// Err is returned when the relation forms a loop and the changes
+    /// are reverted.
+    pub fn add_channel_relation(&mut self, to: &ChannelKey,
+            from: &ChannelKey) -> Result<bool, ()> {
+        let all_exist = {
+            let to_exists = self.chan_to_graph.contains_key(to);
+            let from_exists = self.chan_to_graph.contains_key(from);
+            to_exists && from_exists
+        };
+
+        if !all_exist {
+            return Ok(false);
+        }
+
+        let to = self.chan_to_graph.get(to).unwrap();
+        let from = self.chan_to_graph.get(from).unwrap();
+        let from = unsafe {
+            &mut *(from as *const _ as *mut GraphNode)
+        };
+
+        match from.add_relation(to.clone()) {
+            Ok(_)   => Ok(true),
+            Err(()) => Err(())
+        }
+    }
+
+    /// Remove channel relations.
+    ///
+    /// Return None if one of the channels was not found.
+    /// Return true if relation was deleted or false if it didn't exist.
+    pub fn remove_channel_relation(&mut self, to: &ChannelKey,
+        from: &ChannelKey
+    ) -> Option<bool> {
+        let all_exist = {
+            let to_exists = self.chan_to_graph.contains_key(to);
+            let from_exists = self.chan_to_graph.contains_key(from);
+            to_exists && from_exists
+        };
+
+        if !all_exist {
+            return None;
+        }
+
+        let to = self.chan_to_graph.get(to).unwrap();
+        let from = self.chan_to_graph.get(from).unwrap();
+        let from = unsafe {
+            &mut *(from as *const _ as *mut GraphNode)
+        };
+
+        Some(from.remove_relation(to))
     }
 }
 
