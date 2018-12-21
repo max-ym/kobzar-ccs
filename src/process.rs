@@ -127,7 +127,7 @@ impl Set {
         &self.procs
     }
 
-    pub fn add_process(&mut self, key: Key, process: Process) -> bool {
+    pub fn insert(&mut self, key: Key, process: Process) -> bool {
         if self.procs.contains_key(&key) {
             return true;
         }
@@ -135,7 +135,7 @@ impl Set {
         false
     }
 
-    pub fn remove_process(&mut self, key: &Key) -> bool {
+    pub fn remove(&mut self, key: &Key) -> bool {
         match self.procs.remove(&key) {
             Some(_) => true,
             None    => false,
