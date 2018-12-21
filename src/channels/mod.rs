@@ -19,6 +19,7 @@ pub struct ChannelSet {
     map: BTreeMap<Key, Channel>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WaitDependency {
 
     /// Thread that waits for a signal.
@@ -29,11 +30,16 @@ pub struct WaitDependency {
 }
 
 /// Map that contains all awaiting threads.
+#[derive(Default)]
 pub struct WaitMap {
 
     /// Map contains channel key. This key identifies the channel that
     /// has waiters.
     map: BTreeMap<Key, BTreeSet<ThreadKey>>,
+
+    /// This map connects each single thread with a channel where it
+    /// waits.
+    thr: BTreeMap<ThreadKey, BTreeSet<Key>>,
 }
 
 impl Channel {
@@ -146,33 +152,62 @@ impl WaitMap {
     pub fn add_channel(&mut self, key: Key, waiters: BTreeSet<ThreadKey>)
             -> bool {
         let present = self.map.contains_key(&key);
-        if present {
+
+        // Add to channel map.
+        let added = if present {
             false
         } else {
-            self.map.insert(key, waiters);
+            self.map.insert(key, waiters.clone());
             true
+        };
+
+        // Add to thread map.
+        for thread in waiters.iter() {
+            // Get set that contains channels connected to thread.
+            let set = self.thr.get_mut(&thread);
+            let set = if set.is_none() {
+                let btreeset = BTreeSet::new();
+                self.thr.insert(thread.clone(), btreeset);
+                self.thr.get_mut(&thread).unwrap()
+            } else {
+                set.unwrap()
+            };
+
+            // Save this channel as one that thread is connected to.
+            set.insert(key.clone());
         }
+
+        added
     }
 
     /// Add new waiter to registered channel. Returns false if channel
     /// is not registered. It gets registered and waiter is added.
     pub fn add_waiter(&mut self, key: Key, waiter: ThreadKey) -> bool {
-        if self.map.contains_key(&key) {
-            self.map.get_mut(&key).unwrap().insert(waiter);
+        // Remove from channel map.
+        let success = if self.map.contains_key(&key) {
+            self.map.get_mut(&key).unwrap().insert(waiter.clone());
             true
         } else {
             let mut waiters = BTreeSet::new();
             waiters.insert(waiter);
             self.map.insert(key, waiters);
             false
+        };
+
+        if !success {
+            return false;
         }
+
+        self.thr.get_mut(&waiter).unwrap().insert(key);
+
+        true
     }
 
     /// Remove waiter from the channel. If channel gets zero waiters, it gets
     /// removed from the map. Returns true if waiter was found and false
     /// otherwise.
     pub fn remove_waiter(&mut self, key: Key, waiter: ThreadKey) -> bool {
-        if self.map.contains_key(&key) {
+        let success = if self.map.contains_key(&key) {
             let (present, set_is_empty) = {
                 let set = self.map.get_mut(&key).unwrap();
                 let present = set.remove(&waiter);
@@ -186,15 +221,24 @@ impl WaitMap {
             present
         } else {
             false
+        };
+
+        if !success {
+            return false;
         }
+
+        self.thr.get_mut(&waiter).unwrap().remove(&key);
+
+        true
     }
-}
 
-impl Default for WaitMap {
+    /// Map that holds all wait dependencies of the channel.
+    pub fn channel_wait_map(&self) -> &BTreeMap<Key, BTreeSet<ThreadKey>> {
+        &self.map
+    }
 
-    fn default() -> Self {
-        WaitMap {
-            map: Default::default()
-        }
+    /// Map that connects each thread with a channel for which it waits.
+    pub fn thread_wait_map(&self) -> &BTreeMap<ThreadKey, BTreeSet<Key>> {
+        &self.thr
     }
 }
