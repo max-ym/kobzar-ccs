@@ -60,7 +60,7 @@ impl ChannelSet {
 
     /// Add new channel to the set. If it is already present, existing channel
     /// is not modified and true is returned. False otherwise.
-    pub fn add_channel(&mut self, key: Key, channel: Channel) -> bool {
+    pub fn insert(&mut self, key: Key, channel: Channel) -> bool {
         if self.map.contains_key(&key) {
             true
         } else {
@@ -71,7 +71,7 @@ impl ChannelSet {
 
     /// Remove existing channel from the set. If it exists, true is returned
     /// and false otherwise.
-    pub fn remove_channel(&mut self, key: Key) -> bool {
+    pub fn remove(&mut self, key: Key) -> bool {
         self.map.remove(&key).is_some()
     }
 
