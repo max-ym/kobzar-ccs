@@ -51,6 +51,8 @@ pub mod wait;
 pub use crate::wait::{
     WaitDependency,
     WaitMap,
+    Graph,
+    GraphNode,
 };
 
 /// Network that contains all threads, channels, packages and interfaces.
