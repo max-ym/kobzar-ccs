@@ -56,6 +56,7 @@ pub use crate::wait::{
 };
 
 /// Network that contains all threads, channels, packages and interfaces.
+#[derive(Default)]
 pub struct Network {
     threads: ThreadSet,
     processes: ProcessSet,
@@ -63,6 +64,9 @@ pub struct Network {
     channels: ChannelSet,
     packages: PackageTree,
     wait_deps: WaitMap,
+
+    next_process_key: ProcessKey,
+    next_channel_key: ChannelKey,
 }
 
 impl Network {
@@ -104,21 +108,53 @@ impl Network {
     /// returned when thread was registered successfully.
     pub fn new_thread(&mut self, thread: Thread, process: &ProcessKey)
             -> Option<ThreadKey> {
-        unimplemented!()
+        let process = self.processes.get_mut(process);
+        if process.is_none() {
+            return None;
+        }
+        let process = process.unwrap();
+
+        let thread_key = self.threads.add(thread);
+        process.attach_thread(thread_key.clone());
+        Some(thread_key)
     }
 
     /// Register new process in the network.
     pub fn new_process(&mut self, process: Process) -> ProcessKey {
-        unimplemented!()
+        let new_key = self.next_process_key;
+        self.next_process_key += 1;
+        self.processes.insert(new_key.clone(), process);
+        new_key
     }
 
     /// Register new channel in the network.
     ///
     /// # Returns
     /// None is returned if any of partcipant threads were not found.
-    /// Some is returned if channel was successfully created.
+    /// Some is returned if channel was successfully registered.
     pub fn new_channel(&mut self, channel: Channel) -> Option<ChannelKey> {
-        unimplemented!()
+        let participants = channel.participants();
+
+        // Check if all participants are really registered in this network.
+        for participant in participants {
+            if self.threads.get(participant).is_none() {
+                return None;
+            }
+        }
+
+        let participants = participants.clone();
+
+        let next_channel_key = &mut self.next_channel_key;
+        self.channels.insert(next_channel_key.clone(), channel);
+        *next_channel_key += 1;
+
+        // Register channel to all threads.
+        for participant in participants {
+            let thread = self.threads.get_mut(&participant).unwrap();
+            thread.channels_mut().insert(next_channel_key.clone());
+        }
+
+        Some(next_channel_key.clone())
     }
 
     /// Try put thread asleep.
@@ -126,18 +162,88 @@ impl Network {
     /// # Returns
     /// Some if thread was found and successfully put asleep.
     /// None if thread was not found.
-    pub fn sleep_thread(&mut self, thread: ThreadKey) -> Option<()> {
-        unimplemented!()
+    pub fn sleep_thread(&mut self, thread: &ThreadKey) -> Option<()> {
+        self.change_thread_state_remove_deps(thread, ThreadState::Sleep)
     }
 
-    pub fn active_thread(&mut self, thread: ThreadKey) -> Option<()> {
-        unimplemented!()
+    pub fn active_thread(&mut self, thread: &ThreadKey) -> Option<()> {
+        self.change_thread_state_remove_deps(thread, ThreadState::Active)
     }
 
-    pub fn wait_thread(&mut self, thread: ThreadKey, signal_source: ChannelKey,
-        timer: bool
-    ) -> Option<()> {
-        unimplemented!()
+    pub fn wait_thread(&mut self, thread_key: &ThreadKey,
+        signal_source: &ChannelKey, timer: bool
+    ) -> Result<Option<()>, ()> {
+        if timer == false {
+            return Ok(self.change_thread_state_remove_deps(thread_key,
+                    ThreadState::WaitWithTimeout));
+        }
+
+        if self.channels.get(signal_source).is_none() {
+            return Ok(None);
+        }
+
+        let thread = self.thread(thread_key);
+        if thread.is_none() {
+            return Ok(None);
+        }
+        let thread = thread.unwrap();
+
+        // Register channel relations.
+        let wd = unsafe { &mut *(&self.wait_deps as *const _ as *mut WaitMap) };
+        wd.add_waiter(signal_source.clone(), thread_key.clone());
+        let mut err = false;
+        for ch in thread.channels().iter() {
+            let result = wd.add_channel_relation(signal_source, ch);
+            if result.is_err() {
+                err = true;
+                break;
+            }
+        }
+
+        // Revert changes if loop occured.
+        if err {
+            for ch in thread.channels().iter() {
+                wd.remove_channel_relation(signal_source, ch);
+            }
+            Err(())
+        } else {
+            Ok(Some(()))
+        }
+    }
+
+    fn thread_mut(&mut self, thread: &ThreadKey) -> Option<&mut Thread> {
+        self.threads.get_mut(thread)
+    }
+
+    fn thread(&self, thread: &ThreadKey) -> Option<&Thread> {
+        self.threads.get(thread)
+    }
+
+    /// Change thread state to given and remove thread from wait dependency.
+    fn change_thread_state_remove_deps(&mut self, thread: &ThreadKey,
+            state: ThreadState) -> Option<()> {
+        let old_state = {
+            let thread = self.thread_mut(thread);
+            if thread.is_none() {
+                return None;
+            }
+            let thread = thread.unwrap();
+
+            let old_state = thread.state().clone();
+            thread.set_state(ThreadState::Sleep);
+            old_state
+        };
+
+        if old_state == ThreadState::WaitWithoutTimeout {
+            self.remove_from_wait_dep(thread);
+        }
+
+        Some(())
+    }
+
+    /// Remove process from wait dependency.
+    fn remove_from_wait_dep(&mut self, thread: &ThreadKey) {
+        self.wait_deps.remove_thread(thread);
     }
 }
 
