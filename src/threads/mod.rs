@@ -1,5 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::collections::btree_map::Iter;
+
+use crate::{
+    ChannelKey,
+};
 
 /// Type used to identify unique threads.
 pub type Key = u32;
@@ -27,6 +31,7 @@ pub enum State {
 /// instance.
 pub struct Thread {
     state: State,
+    chans: BTreeSet<ChannelKey>,
 }
 
 /// Thread set. Allows to add, remove and search for threads.
@@ -52,6 +57,16 @@ impl Thread {
     pub fn set_state(&mut self, new_state: State) {
         self.state = new_state;
     }
+
+    /// Channels where this thread participates.
+    pub fn channels(&self) -> &BTreeSet<ChannelKey> {
+        &self.chans
+    }
+
+    /// Channels where this thread participates.
+    pub fn channels_mut(&mut self) -> &mut BTreeSet<ChannelKey> {
+        &mut self.chans
+    }
 }
 
 impl Default for Thread {
@@ -59,6 +74,7 @@ impl Default for Thread {
     fn default() -> Self {
         Thread {
             state: State::Sleep,
+            chans: Default::default(),
         }
     }
 }
