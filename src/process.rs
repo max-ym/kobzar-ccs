@@ -173,7 +173,7 @@ mod tests {
 
         let ik0 = InterfaceKey::new(p0.clone(), Version::new(1, 0, 0));
         let ik1 = InterfaceKey::new(p0.clone(), Version::new(1, 1, 0));
-        let ik2 = InterfaceKey::new(p0, Version::new(2, 0, 0));
+        let ik2 = InterfaceKey::new(p0.clone(), Version::new(2, 0, 0));
 
         let mut i = Interface::new();
         i.add_prerequisite(ik1.clone());
@@ -184,7 +184,7 @@ mod tests {
         is.add_interface(ik1.clone(), i.clone());
         is.add_interface(ik2.clone(), i.clone());
 
-        let mut process = Process::new();
+        let mut process = Process::new(p0);
 
         process.add_implementation(ik0);
         process.add_implementation(ik1);

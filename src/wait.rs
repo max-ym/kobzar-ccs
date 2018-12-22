@@ -97,7 +97,7 @@ impl WaitMap {
         } else {
             self.chan.insert(key.clone(), waiters.clone());
             self.chan_to_graph.insert(
-                key.clone(), self.graph.create_new_node());
+                key.clone(), self.graph.new_node());
             true
         };
 
@@ -118,6 +118,25 @@ impl WaitMap {
         }
 
         added
+    }
+
+    /// Try removing channel from the graph. It is only removed if it
+    /// has no waiters in it.
+    ///
+    /// True is returned on successful remove and false if there was
+    /// some waiters in it and thus channel remains. None is returned
+    /// if channel was not found.
+    pub fn remove_channel(&mut self, key: &ChannelKey) -> Option<bool> {
+        if !self.chan.contains_key(key) {
+            return None;
+        }
+
+        if !self.chan.get(key).unwrap().is_empty() {
+            return Some(false);
+        }
+
+        self.chan.remove(key);
+        Some(true)
     }
 
     /// Add new waiter to registered channel. Returns false if channel
@@ -143,8 +162,8 @@ impl WaitMap {
         true
     }
 
-    /// Remove waiter from the channel. If channel gets zero waiters, it gets
-    /// removed from the map. Returns true if waiter was found and false
+    /// Remove waiter from the channel.
+    /// Returns true if waiter was found and false
     /// otherwise.
     pub fn remove_waiter(&mut self, key: ChannelKey, waiter: ThreadKey) -> bool {
         let success = if self.chan.contains_key(&key) {
@@ -154,11 +173,6 @@ impl WaitMap {
 
                 (present, set.is_empty())
             };
-
-            if set_is_empty {
-                self.chan.remove(&key);
-                self.chan_to_graph.remove(&key);
-            }
             present
         } else {
             false
@@ -226,7 +240,7 @@ impl WaitMap {
             &mut *(from as *const _ as *mut GraphNode)
         };
 
-        match from.add_relation(to.clone()) {
+        match from.add_relation(&to) {
             Ok(_)   => Ok(true),
             Err(()) => Err(())
         }
@@ -273,7 +287,7 @@ impl Graph {
     }
 
     /// Create new node that is not connected to any other.
-    pub fn create_new_node(&mut self) -> Rc<GraphNode> {
+    pub fn new_node(&mut self) -> Rc<GraphNode> {
         let node = GraphNode {
             id: self.generate_new_node_key(),
             relations: Default::default(),
@@ -288,15 +302,16 @@ impl GraphNode {
     ///
     /// Returns true on success and false if node is already present.
     /// Error occurs if new relation forms a loop.
-    pub fn add_relation(&mut self, node: Rc<GraphNode>) -> Result<bool, ()> {
+    pub fn add_relation(&self, node: &Rc<GraphNode>) -> Result<bool, ()> {
+        let _self = unsafe { &mut *(self as *const _ as *mut GraphNode) };
         if self.relation_exists(&node) {
             return Ok(false);
         }
 
-        self.relations.insert(node.id.clone(), node.clone());
+        _self.relations.insert(node.id.clone(), node.clone());
         if self.path_has_loop() {
             // Revert changes and return error.
-            self.relations.remove(&node.id);
+            _self.relations.remove(&node.id);
             return Err(());
         }
 
@@ -322,7 +337,7 @@ impl GraphNode {
             }
             let cur = cur.unwrap();
 
-            let already_present = nodes.insert(cur.id);
+            let already_present = !nodes.insert(cur.id);
             if already_present {
                 return true;
             }

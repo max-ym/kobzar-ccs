@@ -102,18 +102,18 @@ impl Set {
 
     /// Remove thread from the set. Returns removed thread on success and
     /// none if thread was not found.
-    pub fn remove(&mut self, key: Key) -> Option<Thread> {
-        self.map.remove(&key)
+    pub fn remove(&mut self, key: &Key) -> Option<Thread> {
+        self.map.remove(key)
     }
 
     /// Get thread by it's key.
     pub fn get(&self, key: &Key) -> Option<&Thread> {
-        self.map.get(&key)
+        self.map.get(key)
     }
 
     /// Get thread by it's key.
     pub fn get_mut(&mut self, key: &Key) -> Option<&mut Thread> {
-        self.map.get_mut(&key)
+        self.map.get_mut(key)
     }
 
     /// Iterator over elements of the set.
@@ -150,12 +150,12 @@ mod tests {
         let k1 = set.add(thr1);
         let k2 = set.add(thr2);
 
-        { let thr1 = set.get(k1).unwrap(); }
-        { let thr2 = set.get(k2).unwrap(); }
+        { let thr1 = set.get(&k1).unwrap(); }
+        { let thr2 = set.get(&k2).unwrap(); }
 
-        assert!(set.get(k2 + 1).is_none());
+        assert!(set.get(&(k2 + 1)).is_none());
 
-        set.remove(k2);
-        assert!(set.get(k2).is_none());
+        set.remove(&k2);
+        assert!(set.get(&k2).is_none());
     }
 }
