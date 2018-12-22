@@ -76,12 +76,12 @@ impl ChannelSet {
     }
 
     /// Channel in the set by the key.
-    pub fn channel(&self, key: Key) -> Option<&Channel> {
+    pub fn get(&self, key: &Key) -> Option<&Channel> {
         self.map.get(&key)
     }
 
     /// Channel in the set by the key.
-    pub fn channel_mut(&mut self, key: Key) -> Option<&mut Channel> {
+    pub fn get_mut(&mut self, key: &Key) -> Option<&mut Channel> {
         self.map.get_mut(&key)
     }
 }
