@@ -173,6 +173,7 @@ impl WaitMap {
 
                 (present, set.is_empty())
             };
+
             present
         } else {
             false
@@ -363,5 +364,22 @@ impl GraphNode {
 
         self.relations.remove(&node.id);
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn graph_loop() {
+        let mut graph = Graph::new();
+        let mut n1 = graph.new_node();
+        let mut n2 = graph.new_node();
+        let mut n3 = graph.new_node();
+
+        assert!(n1.add_relation(&n2).is_ok());
+        assert!(n2.add_relation(&n3).is_ok());
+        assert!(n3.add_relation(&n1).is_err());
     }
 }
