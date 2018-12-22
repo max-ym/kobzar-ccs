@@ -8,6 +8,7 @@ use std::collections::{BTreeSet, BTreeMap};
 pub type Key = u32;
 
 /// The channel-related information.
+#[derive(Debug)]
 pub struct Channel {
 
     /// Participants in channel transactions.
@@ -15,6 +16,7 @@ pub struct Channel {
 }
 
 /// Set that contains all channels.
+#[derive(Debug)]
 pub struct ChannelSet {
     map: BTreeMap<Key, Channel>,
 }

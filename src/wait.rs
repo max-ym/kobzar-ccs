@@ -81,14 +81,9 @@ impl WaitMap {
     }
 
     /// Add new channel that has waiters. Returns false if the channel
-    /// is already present and the existing channel is not changed. False
-    /// can also be returned if waiters set is empty.
+    /// is already present and the existing channel is not changed.
     pub fn add_channel(&mut self, key: ChannelKey, waiters: BTreeSet<ThreadKey>)
             -> bool {
-        if waiters.is_empty() {
-            return false;
-        }
-
         let present = self.chan.contains_key(&key);
 
         // Add to channel map and graph.
@@ -140,9 +135,10 @@ impl WaitMap {
     }
 
     /// Add new waiter to registered channel. Returns false if channel
-    /// is not registered. It gets registered and waiter is added.
+    /// is not registered. In this case the channel gets registered
+    /// first and waiter is added then. Still false is returned.
+    /// True is returned otherwise, when channel already existed.
     pub fn add_waiter(&mut self, key: ChannelKey, waiter: ThreadKey) -> bool {
-        // Remove from channel map.
         let success = if self.chan.contains_key(&key) {
             self.chan.get_mut(&key).unwrap().insert(waiter.clone());
             true
@@ -157,6 +153,13 @@ impl WaitMap {
             return false;
         }
 
+        // Register thread to channel map for this thread if it is not
+        // yet created.
+        if !self.thr.get(&waiter).is_some() {
+            let mut set = BTreeSet::new();
+            set.insert(key.clone());
+            self.thr.insert(waiter.clone(), set);
+        }
         self.thr.get_mut(&waiter).unwrap().insert(key);
 
         true
@@ -237,9 +240,6 @@ impl WaitMap {
 
         let to = self.chan_to_graph.get(to).unwrap();
         let from = self.chan_to_graph.get(from).unwrap();
-        let from = unsafe {
-            &mut *(from as *const _ as *mut GraphNode)
-        };
 
         match from.add_relation(&to) {
             Ok(_)   => Ok(true),
@@ -266,9 +266,6 @@ impl WaitMap {
 
         let to = self.chan_to_graph.get(to).unwrap();
         let from = self.chan_to_graph.get(from).unwrap();
-        let from = unsafe {
-            &mut *(from as *const _ as *mut GraphNode)
-        };
 
         Some(from.remove_relation(to))
     }
@@ -357,12 +354,14 @@ impl GraphNode {
     /// Remove relation to node.
     ///
     /// True on success and false if no such relation was found.
-    pub fn remove_relation(&mut self, node: &Rc<GraphNode>) -> bool {
+    pub fn remove_relation(&self, node: &Rc<GraphNode>) -> bool {
         if !self.relation_exists(node) {
             return false;
         }
 
-        self.relations.remove(&node.id);
+        let _self = unsafe { &mut *(self as *const _ as *mut GraphNode) };
+
+        _self.relations.remove(&node.id);
         true
     }
 }
@@ -381,5 +380,47 @@ mod tests {
         assert!(n1.add_relation(&n2).is_ok());
         assert!(n2.add_relation(&n3).is_ok());
         assert!(n3.add_relation(&n1).is_err());
+    }
+
+    #[test]
+    fn wait_map_loop() {
+        let mut wm = WaitMap::new();
+
+        let mut c12w: BTreeSet<ThreadKey> = BTreeSet::new();
+        c12w.insert(1);
+        c12w.insert(2);
+
+        let mut c23w: BTreeSet<ThreadKey> = BTreeSet::new();
+        c23w.insert(2);
+        c23w.insert(3);
+
+        let mut c31w: BTreeSet<ThreadKey> = BTreeSet::new();
+        c31w.insert(3);
+        c31w.insert(1);
+
+        let c12 = 1;
+        let c23 = 2;
+        let c31 = 3;
+        wm.add_channel(c12.clone(), c12w);
+        wm.add_channel(c23.clone(), c23w);
+        wm.add_channel(c31.clone(), c31w);
+
+        assert!(wm.add_channel_relation(&c12, &c23).is_ok());
+        assert!(wm.add_channel_relation(&c23, &c31).is_ok());
+        assert!(wm.add_channel_relation(&c31, &c12).is_err());
+    }
+
+    #[test]
+    fn wait_map_self_loop() {
+        let mut wm = WaitMap::new();
+
+        let mut c12w: BTreeSet<ThreadKey> = BTreeSet::new();
+        c12w.insert(1);
+        c12w.insert(2);
+
+        let c12 = 1;
+        wm.add_channel(c12.clone(), c12w);
+
+        assert!(wm.add_channel_relation(&c12, &c12).is_err());
     }
 }

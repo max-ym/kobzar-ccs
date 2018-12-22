@@ -71,6 +71,10 @@ pub struct Network {
 
 impl Network {
 
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     /// Threads registered in the network.
     pub fn threads(&self) -> &ThreadSet {
         &self.threads
@@ -145,16 +149,18 @@ impl Network {
         let participants = participants.clone();
 
         let next_channel_key = &mut self.next_channel_key;
-        self.channels.insert(next_channel_key.clone(), channel);
+        let channel_key = next_channel_key.clone();
+        self.channels.insert(channel_key.clone(), channel);
+        self.wait_deps.add_channel(channel_key.clone(), Default::default());
         *next_channel_key += 1;
 
         // Register channel to all threads.
         for participant in participants {
             let thread = self.threads.get_mut(&participant).unwrap();
-            thread.channels_mut().insert(next_channel_key.clone());
+            thread.channels_mut().insert(channel_key.clone());
         }
 
-        Some(next_channel_key.clone())
+        Some(channel_key)
     }
 
     /// Try put thread asleep.
@@ -173,7 +179,7 @@ impl Network {
     pub fn wait_thread(&mut self, thread_key: &ThreadKey,
         signal_source: &ChannelKey, timer: bool
     ) -> Result<Option<()>, ()> {
-        if timer == false {
+        if timer == true {
             return Ok(self.change_thread_state_remove_deps(thread_key,
                     ThreadState::WaitWithTimeout));
         }
@@ -188,15 +194,22 @@ impl Network {
         }
         let thread = thread.unwrap();
 
-        // Register channel relations.
+        // Register channel relations if all threads in channel are locked.
         let wd = unsafe { &mut *(&self.wait_deps as *const _ as *mut WaitMap) };
         wd.add_waiter(signal_source.clone(), thread_key.clone());
         let mut err = false;
         for ch in thread.channels().iter() {
-            let result = wd.add_channel_relation(signal_source, ch);
-            if result.is_err() {
-                err = true;
-                break;
+            let participant_count =
+                    self.channels.get(ch).unwrap().participants().len();
+            if participant_count == wd.channel_wait_map().len() {
+                let result = wd.add_channel_relation(signal_source, ch);
+                if result.is_err() {
+                    err = true;
+                    break;
+                } else if result.unwrap() == false {
+                    panic!("Couldn't find destination channel which is known
+                    to be registered. Channel number: {}", ch);
+                }
             }
         }
 
@@ -211,11 +224,11 @@ impl Network {
         }
     }
 
-    fn thread_mut(&mut self, thread: &ThreadKey) -> Option<&mut Thread> {
+    pub fn thread_mut(&mut self, thread: &ThreadKey) -> Option<&mut Thread> {
         self.threads.get_mut(thread)
     }
 
-    fn thread(&self, thread: &ThreadKey) -> Option<&Thread> {
+    pub fn thread(&self, thread: &ThreadKey) -> Option<&Thread> {
         self.threads.get(thread)
     }
 
@@ -249,4 +262,74 @@ impl Network {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn network_wait_deps() {
+        let proc_path1 = Path::new("a".to_string());
+        let proc_path2 = Path::new("b".to_string());
+
+        let mut network = Network::new();
+        let proc1 = network.new_process(Process::new(proc_path1));
+        let proc2 = network.new_process(Process::new(proc_path2));
+
+        let th1 = network.new_thread(Thread::new(), &proc1).unwrap();
+        let th2 = network.new_thread(Thread::new(), &proc1).unwrap();
+        let th3 = network.new_thread(Thread::new(), &proc2).unwrap();
+
+        let mut ch12 = Channel::new(th1);
+        ch12.add_participant(th2);
+
+        let mut ch23 = Channel::new(th2);
+        ch23.add_participant(th3);
+
+        let mut ch31 = Channel::new(th3);
+        ch31.add_participant(th1);
+
+        let ch12 = network.new_channel(ch12).unwrap();
+        let ch23 = network.new_channel(ch23).unwrap();
+        let ch31 = network.new_channel(ch31).unwrap();
+
+        assert!(network.wait_thread(&th1, &ch12, false).is_ok());
+        //assert!(network.wait_thread(&th2, &ch23, false).is_ok());
+        //assert!(network.wait_thread(&th3, &ch31, false).is_err());
+    }
+
+    #[test]
+    fn network_add_channel() {
+        let proc_path1 = Path::new("a".to_string());
+        let proc_path2 = Path::new("b".to_string());
+
+        let mut network = Network::new();
+        let proc1 = network.new_process(Process::new(proc_path1));
+        let proc2 = network.new_process(Process::new(proc_path2));
+
+        let th1 = network.new_thread(Thread::new(), &proc1).unwrap();
+        let th2 = network.new_thread(Thread::new(), &proc1).unwrap();
+        let th3 = network.new_thread(Thread::new(), &proc2).unwrap();
+
+        let mut ch12 = Channel::new(th1);
+        ch12.add_participant(th2);
+
+        let mut ch23 = Channel::new(th2);
+        ch23.add_participant(th3);
+
+        let mut ch31 = Channel::new(th3);
+        ch31.add_participant(th1);
+
+        let ch12 = network.new_channel(ch12).unwrap();
+        let ch23 = network.new_channel(ch23).unwrap();
+        let ch31 = network.new_channel(ch31).unwrap();
+
+        assert!(network.thread(&th1).unwrap().channels().contains(&ch12));
+        assert!(network.thread(&th2).unwrap().channels().contains(&ch12));
+        assert!(network.thread(&th2).unwrap().channels().contains(&ch23));
+        assert!(network.thread(&th3).unwrap().channels().contains(&ch23));
+        assert!(network.thread(&th1).unwrap().channels().contains(&ch31));
+        assert!(network.thread(&th3).unwrap().channels().contains(&ch31));
+
+        assert!(network.channels.get(&ch12).is_some());
+        assert!(network.channels.get(&ch23).is_some());
+        assert!(network.channels.get(&ch31).is_some());
+    }
 }
