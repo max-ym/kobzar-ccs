@@ -170,11 +170,11 @@ impl WaitMap {
     /// otherwise.
     pub fn remove_waiter(&mut self, key: ChannelKey, waiter: ThreadKey) -> bool {
         let success = if self.chan.contains_key(&key) {
-            let (present, set_is_empty) = {
+            let present = {
                 let set = self.chan.get_mut(&key).unwrap();
                 let present = set.remove(&waiter);
 
-                (present, set.is_empty())
+                present
             };
 
             present

@@ -1,5 +1,4 @@
 use std::collections::LinkedList;
-use std::collections::BTreeSet;
 
 /// Application thread list operations.
 pub mod threads;
