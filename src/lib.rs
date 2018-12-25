@@ -181,7 +181,7 @@ impl Network {
     ) -> Result<Option<()>, ()> {
         if timer == true {
             return Ok(self.change_thread_state_remove_deps(thread_key,
-                    ThreadState::WaitWithTimeout));
+                    ThreadState::WaitWithTimeout(signal_source.clone())));
         }
 
         if self.channels.get(signal_source).is_none() {
@@ -224,6 +224,49 @@ impl Network {
         }
     }
 
+    /// Some thread send a message by the channel. It goes to wait mode
+    /// and all waiting receivers become sleeping and waiting for processor
+    /// time.
+    ///
+    /// Returns array of threads that wake up from waiting state.
+    /// Error is returned if whether channel is not found or sender
+    /// is not found or not participating in the channel.
+    pub fn channel_signal(&mut self, sender: &ThreadKey,
+        channel: &ChannelKey, timer: bool
+    ) -> Result<LinkedList<ThreadKey>, ()> {
+        // Check whether this thread really is participating in given channel.
+        {
+            let chan = self.channels.get(channel);
+            if chan.is_none() {
+                return Err(());
+            }
+            let chan = chan.unwrap();
+
+            let sender = chan.participants().get(sender);
+            if sender.is_none() {
+                return Err(());
+            }
+        }
+
+        // List of all threads to wake up.
+        let mut list = LinkedList::new();
+
+        for participant_key in
+                self.channels.get(channel).unwrap().participants().iter() {
+            let mut_self = unsafe { &mut *(self as *const _ as *mut Self) };
+            let thread = self.threads.get(&participant_key).unwrap();
+            if thread.is_waiting_channel(&channel) {
+                list.push_front(participant_key.clone());
+                mut_self.active_thread(&participant_key);
+            }
+        }
+
+        // Set current thread to wait for signal from channel.
+        self.wait_thread(sender, channel, timer).unwrap();
+
+        Ok(list)
+    }
+
     pub fn thread_mut(&mut self, thread: &ThreadKey) -> Option<&mut Thread> {
         self.threads.get_mut(thread)
     }
@@ -243,11 +286,14 @@ impl Network {
             let thread = thread.unwrap();
 
             let old_state = thread.state().clone();
-            thread.set_state(ThreadState::Sleep);
+            thread.set_state(state);
             old_state
         };
 
-        if old_state == ThreadState::WaitWithoutTimeout {
+        use std::mem::discriminant;
+        let without_timeout = discriminant(&ThreadState::WaitWithoutTimeout(0));
+
+        if discriminant(&old_state) == without_timeout {
             self.remove_from_wait_dep(thread);
         }
 

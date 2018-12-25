@@ -13,10 +13,10 @@ pub type Key = u32;
 pub enum State {
 
     /// Thread is waiting for external event without timeout.
-    WaitWithoutTimeout,
+    WaitWithoutTimeout(ChannelKey),
 
     /// Thread is waiting for external event with timeout.
-    WaitWithTimeout,
+    WaitWithTimeout(ChannelKey),
 
     /// Thread actively runs.
     Active,
@@ -66,6 +66,17 @@ impl Thread {
     /// Channels where this thread participates.
     pub fn channels_mut(&mut self) -> &mut BTreeSet<ChannelKey> {
         &mut self.chans
+    }
+
+    /// Check whether this thread is waiting for given channel.
+    pub fn is_waiting_channel(&self, channel: &ChannelKey) -> bool {
+        use self::State::*;
+
+        match self.state {
+            WaitWithoutTimeout(chan) => *channel == chan,
+            WaitWithTimeout(chan)    => *channel == chan,
+            _                        => false,
+        }
     }
 }
 
